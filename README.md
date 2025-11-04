@@ -141,3 +141,187 @@ Hardware devices should send plain text color strings (e.g., "red", "blue", "gre
 - Maintains current color state for new connections
 - Keep-alive mechanism to detect and remove inactive clients
 - Simple and lightweight implementation
+
+## Hardware Integration
+
+### ESP32-CAM Integration (Color Sender)
+
+The ESP32-CAM detects the majority color (red, green, or blue) and sends it to the server via WebSocket.
+
+#### Required Libraries
+```cpp
+#include <WiFi.h>
+#include <WebSocketsClient.h>
+```
+
+#### Basic Implementation
+```cpp
+#include <WiFi.h>
+#include <WebSocketsClient.h>
+
+const char* ssid = "YOUR_WIFI_SSID";
+const char* password = "YOUR_WIFI_PASSWORD";
+const char* websocket_server = "192.168.1.100"; // Your server IP
+const uint16_t websocket_port = 8080;
+
+WebSocketsClient webSocket;
+
+void setup() {
+  Serial.begin(115200);
+
+  // Connect to WiFi
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\nWiFi connected");
+
+  // Connect to WebSocket server
+  webSocket.begin(websocket_server, websocket_port, "/");
+  webSocket.onEvent(webSocketEvent);
+  webSocket.setReconnectInterval(5000);
+
+  // Initialize your camera here
+}
+
+void loop() {
+  webSocket.loop();
+
+  // Detect color from camera
+  String color = detectMajorityColor(); // Your color detection function
+
+  if (color != "") {
+    webSocket.sendTXT(color); // Send "red", "green", or "blue"
+    Serial.println("Sent: " + color);
+  }
+
+  delay(1000);
+}
+
+void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
+  switch(type) {
+    case WStype_DISCONNECTED:
+      Serial.println("Disconnected");
+      break;
+    case WStype_CONNECTED:
+      Serial.println("Connected to server");
+      break;
+    case WStype_TEXT:
+      Serial.printf("Received: %s\n", payload);
+      break;
+  }
+}
+```
+
+**Send color as plain text**: `webSocket.sendTXT("red")` or `"green"` or `"blue"`
+
+---
+
+### Arduino Integration (Color Listener)
+
+The Arduino board connects to the server and listens for color updates.
+
+#### Required Libraries
+```cpp
+#include <WiFi.h>            // or <ESP8266WiFi.h> for ESP8266
+#include <WebSocketsClient.h>
+#include <ArduinoJson.h>
+```
+
+#### Basic Implementation
+```cpp
+#include <WiFi.h>
+#include <WebSocketsClient.h>
+#include <ArduinoJson.h>
+
+const char* ssid = "YOUR_WIFI_SSID";
+const char* password = "YOUR_WIFI_PASSWORD";
+const char* websocket_server = "192.168.1.100"; // Your server IP
+const uint16_t websocket_port = 8080;
+
+WebSocketsClient webSocket;
+
+void setup() {
+  Serial.begin(115200);
+
+  // Connect to WiFi
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\nWiFi connected");
+
+  // Connect to WebSocket server
+  webSocket.begin(websocket_server, websocket_port, "/");
+  webSocket.onEvent(webSocketEvent);
+  webSocket.setReconnectInterval(5000);
+
+  // Initialize your hardware (LEDs, motors, etc.)
+}
+
+void loop() {
+  webSocket.loop();
+}
+
+void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
+  switch(type) {
+    case WStype_DISCONNECTED:
+      Serial.println("Disconnected");
+      break;
+
+    case WStype_CONNECTED:
+      Serial.println("Connected to server");
+      break;
+
+    case WStype_TEXT:
+      Serial.printf("Received: %s\n", payload);
+      handleColorUpdate((char*)payload);
+      break;
+  }
+}
+
+void handleColorUpdate(char* payload) {
+  // Parse JSON: {"type":"color","data":"red"}
+  StaticJsonDocument<200> doc;
+  deserializeJson(doc, payload);
+
+  const char* type = doc["type"];
+  const char* color = doc["data"];
+
+  if (strcmp(type, "color") == 0) {
+    Serial.print("Color: ");
+    Serial.println(color);
+
+    // Control your hardware based on color
+    if (strcmp(color, "red") == 0) {
+      // Turn on red LED, move servo, etc.
+    } else if (strcmp(color, "green") == 0) {
+      // Turn on green LED, etc.
+    } else if (strcmp(color, "blue") == 0) {
+      // Turn on blue LED, etc.
+    }
+  }
+}
+```
+
+**Receive color as JSON**: `{"type":"color","data":"red"}`
+
+---
+
+### Required Arduino Libraries
+
+Install via Arduino Library Manager:
+- **WebSockets** by Markus Sattler (arduinoWebSockets)
+- **ArduinoJson** by Benoit Blanchon (v6 or higher)
+
+---
+
+### Connection Details
+
+- **Local development**: `ws://localhost:8080/`
+- **Local network**: `ws://192.168.1.100:8080/` (use your server IP)
+- **Production (Railway)**: `wss://https://despacho-agil-production.up.railway.app/`
+
+Server automatically sends current color when hardware connects.
