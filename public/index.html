@@ -35,38 +35,6 @@
             background: #f8d7da;
             color: #721c24;
         }
-        .controls {
-            margin: 20px 0;
-        }
-        button {
-            padding: 10px 20px;
-            margin: 5px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-            transition: opacity 0.3s;
-        }
-        button:hover {
-            opacity: 0.8;
-        }
-        .red { background: #ff4444; color: white; }
-        .blue { background: #4444ff; color: white; }
-        .green { background: #44ff44; color: #333; }
-        .yellow { background: #ffff44; color: #333; }
-        .purple { background: #ff44ff; color: white; }
-        .orange { background: #ff8844; color: white; }
-        input {
-            padding: 10px;
-            font-size: 16px;
-            border: 2px solid #ddd;
-            border-radius: 5px;
-            width: 200px;
-        }
-        .send-btn {
-            background: #333;
-            color: white;
-        }
         .log {
             margin-top: 20px;
             padding: 15px;
@@ -109,19 +77,6 @@
 
         <div class="current-color">
             Current Color: <span id="currentColor">none</span>
-        </div>
-
-        <div class="controls">
-            <h3>Send Color (simulating hardware):</h3>
-            <button class="red" onclick="sendColor('red')">Red</button>
-            <button class="blue" onclick="sendColor('blue')">Blue</button>
-            <button class="green" onclick="sendColor('green')">Green</button>
-            <button class="yellow" onclick="sendColor('yellow')">Yellow</button>
-            <button class="purple" onclick="sendColor('purple')">Purple</button>
-            <button class="orange" onclick="sendColor('orange')">Orange</button>
-            <br><br>
-            <input type="text" id="customColor" placeholder="Enter custom color">
-            <button class="send-btn" onclick="sendCustomColor()">Send Custom</button>
         </div>
 
         <div class="log">
@@ -195,32 +150,8 @@
             }
         }
 
-        function sendColor(color) {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(color);
-                addLog(`Sent color: ${color}`);
-            } else {
-                addLog('Not connected to server', 'error');
-            }
-        }
-
-        function sendCustomColor() {
-            const color = document.getElementById('customColor').value.trim();
-            if (color) {
-                sendColor(color);
-                document.getElementById('customColor').value = '';
-            }
-        }
-
         // Connect on page load
         connect();
-
-        // Allow Enter key to send custom color
-        document.getElementById('customColor').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                sendCustomColor();
-            }
-        });
     </script>
 </body>
 </html>
