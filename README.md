@@ -13,25 +13,25 @@ Simple WebSocket server for broadcasting color updates from hardware devices to 
 ### Install Dependencies
 
 ```bash
-pnpm install
+npm install
 ```
 
 ### Development
 
 ```bash
-pnpm dev
+npm run dev
 ```
 
 ### Build for Production
 
 ```bash
-pnpm build
+npm run build
 ```
 
 ### Run Production
 
 ```bash
-pnpm start
+npm start
 ```
 
 ## Deploy to Railway

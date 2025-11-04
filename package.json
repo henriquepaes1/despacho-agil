@@ -4,8 +4,7 @@
 	"type": "module",
 	"description": "WebSocket server for color updates from hardware to clients",
 	"engines": {
-		"node": ">=18.11",
-		"pnpm": ">=7.27"
+		"node": ">=18.11"
 	},
 	"scripts": {
 		"dev": "tsx watch src/index.ts",
