@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Despacho Agil - Color Monitor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            transition: background-color 0.5s ease;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .connected {
+            background: #d4edda;
+            color: #155724;
+        }
+        .disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .controls {
+            margin: 20px 0;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: opacity 0.3s;
+        }
+        button:hover {
+            opacity: 0.8;
+        }
+        .red { background: #ff4444; color: white; }
+        .blue { background: #4444ff; color: white; }
+        .green { background: #44ff44; color: #333; }
+        .yellow { background: #ffff44; color: #333; }
+        .purple { background: #ff44ff; color: white; }
+        .orange { background: #ff8844; color: white; }
+        input {
+            padding: 10px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            width: 200px;
+        }
+        .send-btn {
+            background: #333;
+            color: white;
+        }
+        .log {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .log-entry {
+            padding: 5px 0;
+            border-bottom: 1px solid #ddd;
+        }
+        .current-color {
+            font-size: 24px;
+            font-weight: bold;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+            text-align: center;
+            background: #f0f0f0;
+        }
+        .server-url {
+            background: #e3f2fd;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Despacho Agil - Color Monitor</h1>
+
+        <div id="status" class="status disconnected">Disconnected</div>
+        <div class="server-url">Server: <span id="serverUrl">-</span></div>
+
+        <div class="current-color">
+            Current Color: <span id="currentColor">none</span>
+        </div>
+
+        <div class="controls">
+            <h3>Send Color (simulating hardware):</h3>
+            <button class="red" onclick="sendColor('red')">Red</button>
+            <button class="blue" onclick="sendColor('blue')">Blue</button>
+            <button class="green" onclick="sendColor('green')">Green</button>
+            <button class="yellow" onclick="sendColor('yellow')">Yellow</button>
+            <button class="purple" onclick="sendColor('purple')">Purple</button>
+            <button class="orange" onclick="sendColor('orange')">Orange</button>
+            <br><br>
+            <input type="text" id="customColor" placeholder="Enter custom color">
+            <button class="send-btn" onclick="sendCustomColor()">Send Custom</button>
+        </div>
+
+        <div class="log">
+            <h3>Log:</h3>
+            <div id="log"></div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+
+        // Auto-detect WebSocket URL based on current page location
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const serverUrl = `${protocol}//${window.location.host}`;
+
+        document.getElementById('serverUrl').textContent = serverUrl;
+
+        function addLog(message, type = 'info') {
+            const log = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            const time = new Date().toLocaleTimeString();
+            entry.textContent = `[${time}] ${message}`;
+            if (type === 'error') entry.style.color = 'red';
+            if (type === 'success') entry.style.color = 'green';
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function connect() {
+            try {
+                ws = new WebSocket(serverUrl);
+
+                ws.onopen = () => {
+                    document.getElementById('status').textContent = 'Connected';
+                    document.getElementById('status').className = 'status connected';
+                    addLog('Connected to server', 'success');
+                };
+
+                ws.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        if (data.type === 'color') {
+                            const color = data.data;
+                            document.getElementById('currentColor').textContent = color;
+                            document.body.style.backgroundColor = color;
+                            addLog(`Received color: ${color}`, 'success');
+                        }
+                    } catch (error) {
+                        addLog(`Error parsing message: ${error}`, 'error');
+                    }
+                };
+
+                ws.onerror = (error) => {
+                    addLog(`WebSocket error: ${error}`, 'error');
+                };
+
+                ws.onclose = () => {
+                    document.getElementById('status').textContent = 'Disconnected';
+                    document.getElementById('status').className = 'status disconnected';
+                    addLog('Disconnected from server', 'error');
+
+                    // Try to reconnect after 3 seconds
+                    setTimeout(() => {
+                        addLog('Attempting to reconnect...');
+                        connect();
+                    }, 3000);
+                };
+            } catch (error) {
+                addLog(`Connection error: ${error}`, 'error');
+            }
+        }
+
+        function sendColor(color) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(color);
+                addLog(`Sent color: ${color}`);
+            } else {
+                addLog('Not connected to server', 'error');
+            }
+        }
+
+        function sendCustomColor() {
+            const color = document.getElementById('customColor').value.trim();
+            if (color) {
+                sendColor(color);
+                document.getElementById('customColor').value = '';
+            }
+        }
+
+        // Connect on page load
+        connect();
+
+        // Allow Enter key to send custom color
+        document.getElementById('customColor').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendCustomColor();
+            }
+        });
+    </script>
+</body>
+</html>
