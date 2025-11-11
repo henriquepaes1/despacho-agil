@@ -9,6 +9,41 @@ type ExtendedWebSocket = WebSocket & { isAlive: boolean }
 
 let currentColor = "none"
 
+// Debouncing configuration
+const BUFFER_SIZE = 20
+const CONFIDENCE_THRESHOLD = 0.6 // 60% of samples must agree
+const colorBuffer: string[] = []
+
+// Calculate the most frequent color in the buffer (mode)
+function getMostFrequentColor(): string | null {
+	if (colorBuffer.length === 0) return null
+
+	// Count occurrences of each color
+	const colorCounts = new Map<string, number>()
+	for (const color of colorBuffer) {
+		colorCounts.set(color, (colorCounts.get(color) || 0) + 1)
+	}
+
+	// Find the color with the highest count
+	let maxCount = 0
+	let mostFrequentColor: string | null = null
+
+	for (const [color, count] of colorCounts.entries()) {
+		if (count > maxCount) {
+			maxCount = count
+			mostFrequentColor = color
+		}
+	}
+
+	// Check if it meets the confidence threshold
+	const confidence = maxCount / colorBuffer.length
+	if (confidence >= CONFIDENCE_THRESHOLD) {
+		return mostFrequentColor
+	}
+
+	return null // No clear winner
+}
+
 // Create Express app
 const app = express()
 
@@ -43,17 +78,38 @@ wss.on("connection", (ws: ExtendedWebSocket) => {
 		try {
 			const message = data.toString().trim()
 
-			// Update current color
-			currentColor = message
-			console.log(`Color update received: ${currentColor}`)
+			// Add to buffer (sliding window)
+			colorBuffer.push(message)
+			if (colorBuffer.length > BUFFER_SIZE) {
+				colorBuffer.shift() // Remove oldest entry
+			}
 
-			// Broadcast to all clients
-			const broadcast = JSON.stringify({ type: "color", data: currentColor })
-			wss.clients.forEach((client) => {
-				if (client.readyState === WebSocket.OPEN) {
-					client.send(broadcast)
-				}
-			})
+			// Get the most frequent color from the buffer
+			const votedColor = getMostFrequentColor()
+
+			// Only broadcast if we have a confident decision and it's different from current
+			if (votedColor && votedColor !== currentColor) {
+				const previousColor = currentColor
+				currentColor = votedColor
+
+				console.log(
+					`Color changed: ${previousColor} -> ${currentColor} (buffer: ${colorBuffer.length})`
+				)
+
+				// Broadcast to all clients
+				const broadcast = JSON.stringify({ type: "color", data: currentColor })
+				wss.clients.forEach((client) => {
+					if (client.readyState === WebSocket.OPEN) {
+						client.send(broadcast)
+					}
+				})
+			} else if (votedColor) {
+				// Same color, no broadcast needed
+				console.log(`Color confirmed: ${currentColor} (no change)`)
+			} else {
+				// No confident decision yet
+				console.log(`Buffering... (${colorBuffer.length}/${BUFFER_SIZE})`)
+			}
 		} catch (error) {
 			console.error("Error processing message:", error)
 		}
