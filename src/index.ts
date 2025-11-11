@@ -10,7 +10,7 @@ type ExtendedWebSocket = WebSocket & { isAlive: boolean }
 let currentColor = "none"
 
 // Debouncing configuration
-const BUFFER_SIZE = 20
+const BUFFER_SIZE = 10
 const CONFIDENCE_THRESHOLD = 0.6 // 60% of samples must agree
 const colorBuffer: string[] = []
 
